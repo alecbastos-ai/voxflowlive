@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxFlow Live — Transmissão & Tradução Simultânea de Palestras</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        studio: {
+                            950: '#07090e',
+                            900: '#0d111a',
+                            800: '#151c2c',
+                            700: '#1e293b',
+                            accent: '#6366f1',
+                            glow: '#818cf8',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            amber: '#f59e0b'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar for Studio Feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d111a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        .glass-panel {
+            background: rgba(21, 28, 44, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .live-dot {
+            box-shadow: 0 0 12px #f43f5e;
+        }
+        .active-tab {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+        }
+    </style>
+</head>
+<body class="bg-studio-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- Toast Notification Container (Substitui alert()) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-40 glass-panel border-b border-slate-800/80 px-4 py-3 sm:px-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+            
+            <!-- Brand & Status -->
+            <div class="flex items-center justify-between w-full md:w-auto">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-emerald-400 p-[1px]">
+                        <div class="w-full h-full bg-studio-950 rounded-xl flex items-center justify-center">
+                            <i data-lucide="radio" class="w-5 h-5 text-indigo-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+                                VoxFlow <span class="text-indigo-400 font-extrabold">LIVE</span>
+                            </h1>
+                            <span id="broadcast-badge" class="hidden items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                                NO AR
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-400 hidden sm:block">Distribuição & Tradução Simultânea em Tempo Real</p>
+                    </div>
+                </div>
+
+                <!-- Mobile Quick Room Badge -->
+                <div class="md:hidden flex items-center gap-1.5 bg-studio-800 px-2.5 py-1 rounded-lg border border-slate-700">
+                    <span class="text-[10px] text-slate-400 uppercase">Sala</span>
+                    <span class="font-mono text-xs font-bold text-indigo-400" id="mobile-room-code">VX-8492</span>
+                </div>
+            </div>
+
+            <!-- View Mode Switcher -->
+            <nav class="flex items-center bg-studio-900 p-1 rounded-xl border border-slate-800 w-full md:w-auto justify-center" aria-label="Modos de Visualização">
+                <button onclick="switchMode('split')" id="tab-split" class="mode-btn active-tab flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all text-white">
+                    <i data-lucide="columns-2" class="w-4 h-4"></i>
+                    <span>Visão Integrada</span>
+                </button>
+                <button onclick="switchMode('speaker')" id="tab-speaker" class="mode-btn flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-400 hover:text-white">
+                    <i data-lucide="mic" class="w-4 h-4"></i>
+                    <span>Palco (Palestrante)</span>
+                </button>
+                <button onclick="switchMode('listener')" id="tab-listener" class="mode-btn flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-400 hover:text-white">
+                    <i data-lucide="headphones" class="w-4 h-4"></i>
+                    <span>Plateia (Ouvinte)</span>
+                </button>
+            </nav>
+
+            <!-- Global Audience Counter (Desktop) -->
+            <div class="hidden lg:flex items-center gap-4">
+                <div class="flex items-center gap-2 bg-studio-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i>
+                    <span class="text-xs text-slate-400">Conectados:</span>
+                    <span id="total-listeners-badge" class="text-sm font-bold text-white">148</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+        
+        <!-- Intro Banner / Helper -->
+        <div id="helper-banner" class="mb-6 glass-panel rounded-2xl p-4 border-l-4 border-l-indigo-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-3">
+                <div class="p-2 bg-indigo-500/10 rounded-lg text-indigo-400 mt-0.5">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-semibold text-white">Ambiente de Transmissão Simultânea Ativo</h2>
+                    <p class="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                        Inicie a captação pelo <strong>microfone real</strong> ou clique em <strong>"Simular Palestra"</strong> no painel do Palestrante para ver o áudio ser transcrito, traduzido e narrado automaticamente nos fones do Ouvinte.
+                    </p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('helper-banner').remove()" class="text-slate-500 hover:text-slate-300 text-xs px-2 py-1 rounded self-end sm:self-center">
+                Dispensar
+            </button>
+        </div>
+
+        <!-- Dual Grid Layout (Adapts to Split, Speaker Only, or Listener Only) -->
+        <div id="workspace-grid" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- =====================================================================
+                 1. MODO PALESTRANTE (PALCO / CAPTAÇÃO & DISTRIBUIÇÃO)
+                 ===================================================================== -->
+            <section id="panel-speaker" class="lg:col-span-6 flex flex-col gap-5">
+                
+                <!-- Speaker Card Header & Room Info -->
+                <div class="glass-panel rounded-2xl p-5 shadow-xl">
+                    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                                <i data-lucide="mic-2" class="w-4 h-4"></i>
+                            </span>
+                            <div>
+                                <h2 class="text-base font-bold text-white">Estúdio do Palestrante</h2>
+                                <p class="text-xs text-slate-400">Captação de áudio e distribuição multicanal</p>
+                            </div>
+                        </div>
+
+                        <!-- Speaker Source Language Selector -->
+                        <div class="flex items-center gap-2">
+                            <label for="speaker-lang" class="text-xs text-slate-400">Idioma Falado:</label>
+                            <select id="speaker-lang" class="bg-studio-900 border border-slate-700 text-xs font-medium text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500">
+                                <option value="pt-BR" selected>🇧🇷 Português (Brasil)</option>
+                                <option value="en-US">🇺🇸 Inglês (EUA)</option>
+                                <option value="es-ES">🇪🇸 Espanhol (ES)</option>
+                                <option value="fr-FR">🇫🇷 Francês (FR)</option>
+                                <option value="de-DE">🇩🇪 Alemão (DE)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Audio Visualizer Canvas (Web Audio API) -->
+                    <div class="mt-4 relative rounded-xl bg-studio-950 border border-slate-800/90 overflow-hidden p-3">
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 mb-2">
+                            <span class="flex items-center gap-1.5">
+                                <span id="mic-status-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                                <span id="mic-status-text">Microfone em espera</span>
+                            </span>
+                            <span class="font-mono text-indigo-400" id="audio-db-meter">-60 dB</span>
+                        </div>
+                        <div class="w-full h-24 relative">
+                            <canvas id="visualizer-canvas" class="w-full h-full block rounded-lg"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Primary Broadcast Controls -->
+                    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button id="btn-toggle-mic" onclick="toggleMicrophone()" class="flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 transition-all active:scale-[0.98]">
+                            <i data-lucide="mic" class="w-4 h-4"></i>
+                            <span id="btn-mic-label">Captar Microfone Real</span>
+                        </button>
+
+                        <button id="btn-simulate-talk" onclick="toggleLectureSimulation()" class="flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl font-semibold text-sm bg-studio-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 transition-all active:scale-[0.98]">
+                            <i data-lucide="play-circle" class="w-4 h-4"></i>
+                            <span id="btn-sim-label">Simular Palestra ao Vivo</span>
+                        </button>
+                    </div>
+
+                    <!-- Manual Input Fallback (Para testar frases específicas instantaneamente) -->
+                    <form onsubmit="handleManualPhrase(event)" class="mt-3 flex gap-2">
+                        <input type="text" id="manual-speaker-input" placeholder="Ou digite uma frase como palestrante para transmitir agora..." class="flex-1 bg-studio-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                        <button type="submit" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium border border-slate-700 transition-colors flex items-center gap-1.5">
+                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                            <span>Enviar</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Live Original Transcript Feed (Stage Monitor) -->
+                <div class="glass-panel rounded-2xl p-5 flex flex-col">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="captions" class="w-4 h-4 text-indigo-400"></i>
+                            <h3 class="text-sm font-semibold text-white">Transcrição Original (Retorno de Palco)</h3>
+                        </div>
+                        <button onclick="clearTranscripts()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            <span>Limpar</span>
+                        </button>
+                    </div>
+
+                    <!-- Interim / Live Typing Box -->
+                    <div id="interim-box" class="mb-3 px-3.5 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 italic min-h-[38px] flex items-center">
+                        <span id="interim-text" class="opacity-75">Aguardando fala no palco...</span>
+                    </div>
+
+                    <!-- Original Transcript History -->
+                    <div id="speaker-transcript-list" class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                        <!-- Populated dynamically -->
+                        <div class="text-center py-8 text-xs text-slate-500" id="speaker-empty-state">
+                            Nenhuma frase captada ainda. Ative o microfone ou inicie a simulação.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QR Code & Audience Channels Telemetry -->
+                <div class="glass-panel rounded-2xl p-5">
+                    <div class="flex flex-col sm:flex-row items-center gap-5">
+                        <!-- Generated SVG QR Code for Audience Access -->
+                        <div class="bg-white p-2.5 rounded-xl shrink-0 shadow-md flex flex-col items-center">
+                            <svg class="w-24 h-24 text-slate-950" viewBox="0 0 100 100" fill="currentColor" aria-label="QR Code de Acesso à Sala">
+                                <!-- QR Finder Patterns -->
+                                <path d="M10,10 h25 v25 h-25 z M15,15 v15 h15 v-15 z M19,19 h7 v7 h-7 z"/>
+                                <path d="M65,10 h25 v25 h-25 z M70,15 v15 h15 v-15 z M74,19 h7 v7 h-7 z"/>
+                                <path d="M10,65 h25 v25 h-25 z M15,70 v15 h15 v-15 z M19,74 h7 v7 h-7 z"/>
+                                <!-- QR Data Matrix Simulation -->
+                                <rect x="42" y="10" width="6" height="6"/><rect x="52" y="10" width="6" height="12"/>
+                                <rect x="42" y="22" width="6" height="12"/><rect x="10" y="42" width="12" height="6"/>
+                                <rect x="28" y="42" width="18" height="6"/><rect x="52" y="42" width="12" height="12"/>
+                                <rect x="70" y="42" width="20" height="6"/><rect x="42" y="54" width="6" height="18"/>
+                                <rect x="54" y="60" width="12" height="6"/><rect x="72" y="54" width="6" height="18"/>
+                                <rect x="84" y="60" width="6" height="12"/><rect x="42" y="78" width="18" height="6"/>
+                                <rect x="66" y="78" width="12" height="12"/><rect x="84" y="84" width="6" height="6"/>
+                            </svg>
+                            <span class="text-[9px] font-mono font-bold text-slate-800 mt-1">SCAN TO LISTEN</span>
+                        </div>
+
+                        <div class="flex-1 w-full">
+                            <div class="flex items-center justify-between mb-2">
+                                <div>
+                                    <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Código da Sala</span>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span id="room-code-display" class="font-mono text-xl font-extrabold text-white tracking-wider">VX-8492</span>
+                                        <button onclick="copyRoomLink()" class="p-1.5 rounded-lg bg-studio-800 hover:bg-slate-700 text-slate-300 transition-colors" title="Copiar link da sala">
+                                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[11px] text-slate-400">Canais Ativos</span>
+                                    <p class="text-sm font-bold text-emerald-400">5 Idiomas</p>
+                                </div>
+                            </div>
+
+                            <!-- Distribution Breakdown by Language -->
+                            <div class="mt-3 space-y-1.5">
+                                <p class="text-[11px] text-slate-400 font-medium">Ramificação da Plateia por Canal:</p>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                                    <div class="bg-studio-900/90 px-2.5 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+                                        <span>🇺🇸 Inglês</span>
+                                        <span class="font-mono font-bold text-indigo-400" id="count-en">64</span>
+                                    </div>
+                                    <div class="bg-studio-900/90 px-2.5 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+                                        <span>🇪🇸 Espanhol</span>
+                                        <span class="font-mono font-bold text-emerald-400" id="count-es">41</span>
+                                    </div>
+                                    <div class="bg-studio-900/90 px-2.5 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+                                        <span>🇫🇷 Francês</span>
+                                        <span class="font-mono font-bold text-amber-400" id="count-fr">19</span>
+                                    </div>
+                                    <div class="bg-studio-900/90 px-2.5 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+                                        <span>🇩🇪 Alemão</span>
+                                        <span class="font-mono font-bold text-rose-400" id="count-de">12</span>
+                                    </div>
+                                    <div class="bg-studio-900/90 px-2.5 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+                                        <span>🇧🇷 Português</span>
+                                        <span class="font-mono font-bold text-slate-300" id="count-pt">12</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- =====================================================================
+                 2. MODO OUVINTE (PLATEIA / FONES DE OUVIDO & TELAS)
+                 ===================================================================== -->
+            <section id="panel-listener" class="lg:col-span-6 flex flex-col gap-5">
+                
+                <!-- Listener Receiver Control Deck -->
+                <div class="glass-panel rounded-2xl p-5 shadow-xl border-t-2 border-t-emerald-500/60">
+                    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                <i data-lucide="headphones" class="w-4 h-4"></i>
+                            </span>
+                            <div>
+                                <h2 class="text-base font-bold text-white">Receptor da Plateia</h2>
+                                <p class="text-xs text-slate-400">Escolha seu idioma, tela ou dublagem no fone</p>
+                            </div>
+                        </div>
+
+                        <!-- Connection Status Pill -->
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Sincronizado
+                        </span>
+                    </div>
+
+                    <!-- Target Language & Output Mode Controls -->
+                    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Language Selector -->
+                        <div>
+                            <label for="target-lang" class="block text-xs font-medium text-slate-400 mb-1.5">
+                                Idioma de Destino (Tradução):
+                            </label>
+                            <select id="target-lang" onchange="onTargetLanguageChange()" class="w-full bg-studio-900 border border-slate-700 text-sm font-semibold text-white rounded-xl px-3 py-2.5 focus:outline-none focus:border-emerald-500">
+                                <option value="en" selected>🇺🇸 English (Inglês)</option>
+                                <option value="es">🇪🇸 Español (Espanhol)</option>
+                                <option value="fr">🇫🇷 Français (Francês)</option>
+                                <option value="de">🇩🇪 Deutsch (Alemão)</option>
+                                <option value="pt">🇧🇷 Português (Original/Legenda)</option>
+                            </select>
+                        </div>
+
+                        <!-- Output Mode (Screen Text vs Headphone Audio vs Both) -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5">
+                                Saída do Receptor:
+                            </label>
+                            <div class="grid grid-cols-3 gap-1.5 bg-studio-900 p-1 rounded-xl border border-slate-800">
+                                <button type="button" onclick="setOutputMode('both')" id="out-both" class="out-btn bg-emerald-600 text-white py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all" title="Legenda na tela + Áudio no fone">
+                                    <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                                    <span>Ambos</span>
+                                </button>
+                                <button type="button" onclick="setOutputMode('text')" id="out-text" class="out-btn text-slate-400 hover:text-white py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all" title="Apenas texto na tela">
+                                    <i data-lucide="monitor" class="w-3.5 h-3.5"></i>
+                                    <span>Tela</span>
+                                </button>
+                                <button type="button" onclick="setOutputMode('audio')" id="out-audio" class="out-btn text-slate-400 hover:text-white py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all" title="Apenas áudio no fone">
+                                    <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+                                    <span>Fone</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audio Dubbing & Accessibility Controls -->
+                    <div class="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                        <!-- Speech Rate Slider -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400 flex items-center gap-1">
+                                    <i data-lucide="gauge" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                    Velocidade da Voz (Fone)
+                                </span>
+                                <span id="speech-rate-val" class="font-mono font-bold text-emerald-400">1.05x</span>
+                            </div>
+                            <input type="range" id="speech-rate" min="0.8" max="1.5" step="0.05" value="1.05" oninput="updateSpeechRate(this.value)" class="w-full accent-emerald-500 h-1.5 bg-studio-900 rounded-lg cursor-pointer">
+                        </div>
+
+                        <!-- Font Size Slider & Stage Screen Mode -->
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs text-slate-400">Tamanho Legenda:</span>
+                                <input type="range" id="font-size-slider" min="0" max="3" step="1" value="1" oninput="setFontSizeLevel(this.value)" class="w-24 accent-indigo-500 h-1.5 bg-studio-900 rounded-lg cursor-pointer" title="Ajustar tamanho da fonte">
+                                <button onclick="testHeadphoneAudio()" class="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition-colors" title="Testar áudio sintetizado no fone">
+                                    <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+                                    <span>Testar Fone</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Translated Screen / Teleprompter Display -->
+                <div class="glass-panel rounded-2xl p-5 flex flex-col flex-1 min-h-[380px]">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <span id="tts-speaking-indicator" class="hidden w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            <h3 class="text-sm font-semibold text-white" id="listener-feed-title">
+                                Legendas & Dublagem ao Vivo (English)
+                            </h3>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button onclick="toggleFullscreenScreen()" class="px-2.5 py-1.5 rounded-lg bg-studio-900 hover:bg-slate-800 border border-slate-700 text-xs text-slate-300 flex items-center gap-1.5 transition-colors" title="Modo Telão / Tela Cheia">
+                                <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+                                <span class="hidden sm:inline">Modo Telão</span>
+                            </button>
+                            <button onclick="exportTranscript()" class="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-xs text-indigo-300 font-medium flex items-center gap-1.5 transition-colors">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span>Exportar (.TXT)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Audio-Only Mode Overlay (Shown when user chooses 'Fone' only) -->
+                    <div id="audio-only-banner" class="hidden my-auto py-12 flex flex-col items-center justify-center text-center">
+                        <div class="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3 animate-pulse">
+                            <i data-lucide="headphones" class="w-8 h-8"></i>
+                        </div>
+                        <h4 class="text-base font-bold text-white">Modo Fone de Ouvido Ativo</h4>
+                        <p class="text-xs text-slate-400 max-w-xs mt-1">
+                            As legendas visuais estão ocultas para economia de bateria. Você está ouvindo a tradução simultânea diretamente no seu fone.
+                        </p>
+                    </div>
+
+                    <!-- Translated Subtitles Feed -->
+                    <div id="listener-transcript-list" class="space-y-3 max-h-[360px] overflow-y-auto pr-1 flex-1">
+                        <div id="listener-empty-state" class="h-full flex flex-col items-center justify-center text-center py-12 text-slate-500">
+                            <i data-lucide="subtitles" class="w-10 h-10 mb-2 opacity-40"></i>
+                            <p class="text-sm font-medium text-slate-400">Aguardando transmissão do palco...</p>
+                            <p class="text-xs mt-1 max-w-sm">Assim que o palestrante falar, o texto traduzido aparecerá aqui e será narrado no seu idioma.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 py-4 px-6 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>VoxFlow Live • Tecnologia Web Speech, Web Audio & SpeechSynthesis API</span>
+            <span class="text-slate-600">Compatível com Chrome, Edge, Safari e dispositivos móveis</span>
+        </div>
+    </footer>
+
+    <!-- =========================================================================
+         APPLICATION LOGIC (WEB AUDIO + SPEECH RECOGNITION + TRANSLATION + TTS)
+         ========================================================================= -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- Application State ---
+        const state = {
+            mode: 'split', // 'split' | 'speaker' | 'listener'
+            isMicActive: false,
+            isSimulating: false,
+            simulationTimer: null,
+            simulationIndex: 0,
+            targetLang: 'en', // 'en' | 'es' | 'fr' | 'de' | 'pt'
+            outputMode: 'both', // 'both' | 'text' | 'audio'
+            speechRate: 1.05,
+            fontSizeLevel: 1, // 0: sm, 1: base, 2: lg, 3: xl (Telão)
+            transcripts: [], // Array of { id, time, original, translations: { en, es, fr, de, pt } }
+            audioContext: null,
+            analyser: null,
+            micStream: null,
+            animationFrameId: null,
+            recognition: null
+        };
+
+        const languageNames = {
+            en: 'English (Inglês)',
+            es: 'Español (Espanhol)',
+            fr: 'Français (Francês)',
+            de: 'Deutsch (Alemão)',
+            pt: 'Português (Original)'
+        };
+
+        const ttsLangCodes = {
+            en: 'en-US',
+            es: 'es-ES',
+            fr: 'fr-FR',
+            de: 'de-DE',
+            pt: 'pt-BR'
+        };
+
+        // --- Simulated Keynote Lecture Script (Rich, realistic conference phrases) ---
+        const demoLectureScript = [
+            {
+                pt: "Bom dia a todos e sejam muito bem-vindos à nossa conferência global de inovação e tecnologia.",
+                en: "Good morning everyone, and welcome to our global innovation and technology conference.",
+                es: "Buenos días a todos y bienvenidos a nuestra conferencia global de innovación y tecnología.",
+                fr: "Bonjour à tous et bienvenue à notre conférence mondiale sur l'innovation et la technologie.",
+                de: "Guten Morgen zusammen und herzlich willkommen zu unserer globalen Innovations- und Technologiekonferenz."
+            },
+            {
+                pt: "Hoje vamos explorar como a inteligência artificial está quebrando as barreiras de idioma em eventos ao vivo.",
+                en: "Today we will explore how artificial intelligence is breaking language barriers at live events.",
+                es: "Hoy exploraremos cómo la inteligencia artificial está rompiendo las barreras del idioma en eventos en vivo.",
+                fr: "Aujourd'hui, nous allons explorer comment l'intelligence artificielle brise les barrières linguistiques lors d'événements en direct.",
+                de: "Heute werden wir untersuchen, wie künstliche Intelligenz Sprachbarrieren bei Live-Veranstaltungen abbaut."
+            },
+            {
+                pt: "Imagine uma plateia conectada onde cada participante escolhe se quer ler no telão ou ouvir no seu próprio fone.",
+                en: "Imagine a connected audience where each participant chooses whether to read on screen or listen on their own headphones.",
+                es: "Imaginen una audiencia conectada donde cada participante elige si quiere leer en la pantalla o escuchar en sus auriculares.",
+                fr: "Imaginez un public connecté où chaque participant choisit de lire à l'écran ou d'écouter dans ses propres écouteurs.",
+                de: "Stellen Sie sich ein vernetztes Publikum vor, in dem jeder Teilnehmer wählt, ob er auf dem Bildschirm liest oder über Kopfhörer zuhört."
+            },
+            {
+                pt: "A acessibilidade e a inclusão são os pilares fundamentais para o futuro da comunicação humana.",
+                en: "Accessibility and inclusion are the fundamental pillars for the future of human communication.",
+                es: "La accesibilidad y la inclusión son los pilares fundamentales para el futuro de la comunicación humana.",
+                fr: "L'accessibilité et l'inclusion sont les piliers fondamentaux de l'avenir de la communication humaine.",
+                de: "Barrierefreiheit und Inklusion sind die Grundpfeiler für die Zukunft der menschlichen Kommunikation."
+            },
+            {
+                pt: "Muito obrigado pela atenção de vocês, agora vamos abrir espaço para perguntas da plateia.",
+                en: "Thank you very much for your attention; now let's open the floor for questions from the audience.",
+                es: "Muchas gracias por su atención; ahora abriremos el espacio para preguntas del público.",
+                fr: "Merci beaucoup pour votre attention ; nous allons maintenant ouvrir la séance aux questions du public.",
+                de: "Vielen Dank für Ihre Aufmerksamkeit; jetzt öffnen wir die Runde für Fragen aus dem Publikum."
+            }
+        ];
+
+        // --- Offline/Instant Dictionary Fallback + Online Translation API ---
+        const localDictionary = {
+            "olá": { en: "Hello", es: "Hola", fr: "Bonjour", de: "Hallo" },
+            "bom dia": { en: "Good morning", es: "Buenos días", fr: "Bonjour", de: "Guten Morgen" },
+            "boa tarde": { en: "Good afternoon", es: "Buenas tardes", fr: "Bon après-midi", de: "Guten Tag" },
+            "boa noite": { en: "Good evening", es: "Buenas noches", fr: "Bonsoir", de: "Guten Abend" },
+            "obrigado": { en: "Thank you", es: "Gracias", fr: "Merci", de: "Danke" },
+            "bem-vindos": { en: "Welcome", es: "Bienvenidos", fr: "Bienvenue", de: "Willkommen" }
+        };
+
+        /**
+         * Translates a given text into all supported languages (en, es, fr, de, pt)
+         * Blindado contra strings vazias e avisos da API MyMemory (NO QUERY SPECIFIED).
+         */
+        async function translateToAllLanguages(text, sourceLangCode = 'pt-BR') {
+            const textoLimpo = (text || '').trim();
+            if (!textoLimpo || textoLimpo.length < 2) {
+                return null;
+            }
+
+            const baseSource = sourceLangCode.split('-')[0].toLowerCase();
+            const result = {
+                pt: textoLimpo,
+                en: textoLimpo,
+                es: textoLimpo,
+                fr: textoLimpo,
+                de: textoLimpo
+            };
+
+            // 1. Verifica correspondência exata no roteiro da palestra simulada
+            const demoMatch = demoLectureScript.find(item => item[baseSource]?.toLowerCase() === textoLimpo.toLowerCase());
+            if (demoMatch) {
+                return { ...demoMatch };
+            }
+
+            // 2. Verifica dicionário local de saudações/termos comuns
+            const lower = textoLimpo.toLowerCase().replace(/[.!?]+$/, '');
+            if (localDictionary[lower]) {
+                return {
+                    ...result,
+                    ...localDictionary[lower]
+                };
+            }
+
+            const targets = ['en', 'es', 'fr', 'de', 'pt'].filter(l => l !== baseSource);
+
+            // 3. Consulta API externa com validação rigorosa de status e conteúdo
+            await Promise.all(targets.map(async (target) => {
+                try {
+                    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textoLimpo)}&langpair=${baseSource}|${target}`;
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const translated = data?.responseData?.translatedText || '';
+                        const isValidResponse = data?.responseStatus === 200
+                            && translated.trim().length > 0
+                            && !translated.toUpperCase().includes('NO QUERY SPECIFIED')
+                            && !translated.toUpperCase().includes('MYMEMORY WARNING')
+                            && !translated.toUpperCase().includes('INVALID LANGUAGE PAIR');
+
+                        if (isValidResponse) {
+                            result[target] = translated.trim();
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    // Falha silenciosa de rede: mantém fallback seguro
+                }
+
+                // Fallback seguro: mantém o texto original limpo em vez de exibir erro da API
+                result[target] = textoLimpo;
+            }));
+
+            return result;
+        }
+
+        // --- Toast Notification System (Replaces alert) ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                info: 'bg-studio-800 border-indigo-500/50 text-slate-100',
+                success: 'bg-studio-800 border-emerald-500/50 text-emerald-200',
+                warning: 'bg-studio-800 border-amber-500/50 text-amber-200',
+                error: 'bg-studio-800 border-rose-500/50 text-rose-200'
+            };
+
+            toast.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-2xl text-xs font-medium flex items-center gap-2.5 transform transition-all duration-300 translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+            toast.innerHTML = `<span>${message}</span>`;
+            
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // --- View Mode Switcher (Split / Speaker / Listener) ---
+        function switchMode(newMode) {
+            state.mode = newMode;
+            
+            // Update tab buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active-tab', 'text-white');
+                btn.classList.add('text-slate-400');
+            });
+            const activeBtn = document.getElementById(`tab-${newMode}`);
+            activeBtn.classList.add('active-tab', 'text-white');
+            activeBtn.classList.remove('text-slate-400');
+
+            const speakerPanel = document.getElementById('panel-speaker');
+            const listenerPanel = document.getElementById('panel-listener');
+
+            if (newMode === 'split') {
+                speakerPanel.classList.remove('hidden', 'lg:col-span-12');
+                speakerPanel.classList.add('lg:col-span-6');
+                listenerPanel.classList.remove('hidden', 'lg:col-span-12');
+                listenerPanel.classList.add('lg:col-span-6');
+            } else if (newMode === 'speaker') {
+                speakerPanel.classList.remove('hidden', 'lg:col-span-6');
+                speakerPanel.classList.add('lg:col-span-12');
+                listenerPanel.classList.add('hidden');
+            } else if (newMode === 'listener') {
+                listenerPanel.classList.remove('hidden', 'lg:col-span-6');
+                listenerPanel.classList.add('lg:col-span-12');
+                speakerPanel.classList.add('hidden');
+            }
+
+            resizeCanvas();
+        }
+
+        // --- Web Audio API Spectrometer Visualizer ---
+        const canvas = document.getElementById('visualizer-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function drawVisualizer() {
+            state.animationFrameId = requestAnimationFrame(drawVisualizer);
+            
+            const width = canvas.width;
+            const height = canvas.height;
+            ctx.clearRect(0, 0, width, height);
+
+            const barCount = 48;
+            const gap = 3;
+            const barWidth = Math.max(2, (width - (barCount - 1) * gap) / barCount);
+
+            let dataArray = new Uint8Array(barCount);
+
+            if (state.isMicActive && state.analyser) {
+                const bufferLength = state.analyser.frequencyBinCount;
+                const fullData = new Uint8Array(bufferLength);
+                state.analyser.getByteFrequencyData(fullData);
+                
+                let sum = 0;
+                for (let i = 0; i < barCount; i++) {
+                    const val = fullData[i * 2] || 0;
+                    dataArray[i] = val;
+                    sum += val;
+                }
+                const avg = sum / barCount;
+                const db = Math.round((avg / 255) * 60 - 60);
+                document.getElementById('audio-db-meter').textContent = `${db} dB`;
+            } else if (state.isSimulating) {
+                // Synthetic smooth voice waveform during simulation
+                const now = Date.now() / 160;
+                for (let i = 0; i < barCount; i++) {
+                    const wave = Math.sin(now + i * 0.35) * 0.5 + 0.5;
+                    const envelope = Math.sin((i / barCount) * Math.PI);
+                    dataArray[i] = Math.floor((wave * 150 + 35) * envelope);
+                }
+                document.getElementById('audio-db-meter').textContent = `-14 dB`;
+            } else {
+                // Idle flatline pulse
+                for (let i = 0; i < barCount; i++) {
+                    dataArray[i] = 6;
+                }
+                document.getElementById('audio-db-meter').textContent = `-60 dB`;
+            }
+
+            for (let i = 0; i < barCount; i++) {
+                const value = dataArray[i];
+                const percent = value / 255;
+                const barHeight = Math.max(4, percent * (height - 8));
+                const x = i * (barWidth + gap);
+                const y = (height - barHeight) / 2;
+
+                const gradient = ctx.createLinearGradient(0, y, 0, y + barHeight);
+                if (state.isMicActive || state.isSimulating) {
+                    gradient.addColorStop(0, '#818cf8');
+                    gradient.addColorStop(0.5, '#6366f1');
+                    gradient.addColorStop(1, '#10b981');
+                } else {
+                    gradient.addColorStop(0, '#334155');
+                    gradient.addColorStop(1, '#1e293b');
+                }
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.roundRect(x, y, barWidth, barHeight, 4);
+                ctx.fill();
+            }
+        }
+
+        // --- Web Speech API (Real Microphone Capture & Transcription) ---
+        async function toggleMicrophone() {
+            if (state.isMicActive) {
+                stopMicrophone();
+                return;
+            }
+
+            if (state.isSimulating) {
+                stopLectureSimulation();
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                showToast('Seu navegador não suporta reconhecimento de voz nativo. Use o botão "Simular Palestra".', 'warning');
+                return;
+            }
+
+            try {
+                // Request real audio stream for Web Audio Visualizer
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                state.micStream = stream;
+                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = state.audioContext.createMediaStreamSource(stream);
+                state.analyser = state.audioContext.createAnalyser();
+                state.analyser.fftSize = 256;
+                source.connect(state.analyser);
+
+                // Configure Speech Recognition
+                const recognition = new SpeechRecognition();
+                recognition.lang = document.getElementById('speaker-lang').value;
+                recognition.continuous = true;
+                recognition.interimResults = true;
+
+                recognition.onstart = () => {
+                    state.isMicActive = true;
+                    updateBroadcastUI(true, 'Microfone ao vivo — Captando fala...');
+                    showToast('Microfone conectado! Comece a falar para transmitir.', 'success');
+                };
+
+                recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        const transcript = event.results[i][0].transcript || '';
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    if (interimTranscript.trim().length > 0) {
+                        document.getElementById('interim-text').textContent = interimTranscript.trim();
+                    }
+
+                    // Só dispara tradução e transmissão se houver texto final válido (>= 2 caracteres)
+                    const cleanFinal = finalTranscript.trim();
+                    if (cleanFinal.length >= 2) {
+                        document.getElementById('interim-text').textContent = 'Processando tradução...';
+                        processSpokenSentence(cleanFinal).finally(() => {
+                            document.getElementById('interim-text').textContent = 'Aguardando fala no palco...';
+                        });
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    if (event.error === 'not-allowed') {
+                        showToast('Permissão de microfone negada. Use "Simular Palestra".', 'error');
+                        stopMicrophone();
+                    }
+                };
+
+                recognition.onend = () => {
+                    // Auto-restart if still toggled on
+                    if (state.isMicActive) {
+                        try { recognition.start(); } catch (e) {}
+                    }
+                };
+
+                state.recognition = recognition;
+                recognition.start();
+
+            } catch (err) {
+                showToast('Não foi possível acessar o microfone. Ativando modo de simulação...', 'warning');
+                toggleLectureSimulation();
+            }
+        }
+
+        function stopMicrophone() {
+            state.isMicActive = false;
+            if (state.recognition) {
+                state.recognition.stop();
+                state.recognition = null;
+            }
+            if (state.micStream) {
+                state.micStream.getTracks().forEach(track => track.stop());
+                state.micStream = null;
+            }
+            if (state.audioContext) {
+                state.audioContext.close();
+                state.audioContext = null;
+            }
+            updateBroadcastUI(false, 'Microfone em espera');
+            document.getElementById('interim-text').textContent = 'Aguardando fala no palco...';
+        }
+
+        // --- Lecture Simulation Mode (Works without microphone) ---
+        function toggleLectureSimulation() {
+            if (state.isSimulating) {
+                stopLectureSimulation();
+                return;
+            }
+
+            if (state.isMicActive) {
+                stopMicrophone();
+            }
+
+            state.isSimulating = true;
+            updateBroadcastUI(true, 'Simulação de Palestra no Ar');
+            showToast('Simulação de palestra iniciada! Observe a tradução e o áudio nos fones.', 'success');
+
+            const runStep = () => {
+                if (!state.isSimulating) return;
+                const item = demoLectureScript[state.simulationIndex % demoLectureScript.length];
+                state.simulationIndex++;
+
+                // Simulate interim typing effect before committing sentence
+                const words = item.pt.split(' ');
+                let currentWord = 0;
+                const typingInterval = setInterval(() => {
+                    if (!state.isSimulating) {
+                        clearInterval(typingInterval);
+                        return;
+                    }
+                    currentWord += 2;
+                    document.getElementById('interim-text').textContent = words.slice(0, currentWord).join(' ') + '...';
+                    
+                    if (currentWord >= words.length) {
+                        clearInterval(typingInterval);
+                        document.getElementById('interim-text').textContent = 'Aguardando próxima frase...';
+                        commitTranslatedEntry(item.pt, item);
+                    }
+                }, 180);
+            };
+
+            runStep();
+            state.simulationTimer = setInterval(runStep, 4500);
+        }
+
+        function stopLectureSimulation() {
+            state.isSimulating = false;
+            if (state.simulationTimer) {
+                clearInterval(state.simulationTimer);
+                state.simulationTimer = null;
+            }
+            updateBroadcastUI(false, 'Microfone em espera');
+            document.getElementById('interim-text').textContent = 'Aguardando fala no palco...';
+        }
+
+        function updateBroadcastUI(isLive, statusText) {
+            const badge = document.getElementById('broadcast-badge');
+            const micDot = document.getElementById('mic-status-dot');
+            const micLabel = document.getElementById('mic-status-text');
+            const btnMic = document.getElementById('btn-toggle-mic');
+            const btnMicText = document.getElementById('btn-mic-label');
+            const btnSim = document.getElementById('btn-simulate-talk');
+            const btnSimText = document.getElementById('btn-sim-label');
+
+            micLabel.textContent = statusText;
+
+            if (isLive) {
+                badge.classList.remove('hidden');
+                badge.classList.add('inline-flex');
+                micDot.className = 'w-2 h-2 rounded-full bg-rose-500 animate-ping';
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('inline-flex');
+                micDot.className = 'w-2 h-2 rounded-full bg-slate-600';
+            }
+
+            if (state.isMicActive) {
+                btnMic.classList.replace('bg-indigo-600', 'bg-rose-600');
+                btnMic.classList.replace('hover:bg-indigo-500', 'hover:bg-rose-500');
+                btnMicText.textContent = 'Parar Microfone';
+            } else {
+                btnMic.classList.replace('bg-rose-600', 'bg-indigo-600');
+                btnMic.classList.replace('hover:bg-rose-500', 'hover:bg-indigo-500');
+                btnMicText.textContent = 'Captar Microfone Real';
+            }
+
+            if (state.isSimulating) {
+                btnSim.classList.add('bg-emerald-600/20', 'border-emerald-400');
+                btnSimText.textContent = 'Parar Simulação';
+            } else {
+                btnSim.classList.remove('bg-emerald-600/20', 'border-emerald-400');
+                btnSimText.textContent = 'Simular Palestra ao Vivo';
+            }
+        }
+
+        // --- Process & Broadcast Spoken or Typed Phrases ---
+        async function handleManualPhrase(e) {
+            e.preventDefault();
+            const input = document.getElementById('manual-speaker-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            document.getElementById('interim-text').textContent = `Traduzindo: "${text}"...`;
+            await processSpokenSentence(text);
+            document.getElementById('interim-text').textContent = 'Aguardando fala no palco...';
+        }
+
+        async function processSpokenSentence(rawText) {
+            const cleanText = (rawText || '').trim();
+            if (!cleanText || cleanText.length < 2) return;
+
+            const sourceLang = document.getElementById('speaker-lang').value;
+            const translations = await translateToAllLanguages(cleanText, sourceLang);
+            if (translations) {
+                commitTranslatedEntry(cleanText, translations);
+            }
+        }
+
+        /**
+         * Registra uma nova fala transcrita e traduzida no estado global,
+         * atualiza os feeds do Palco e da Plateia, dispara o áudio no fone (TTS)
+         * e atualiza as métricas de distribuição.
+         */
+        function commitTranslatedEntry(originalText, translations) {
+            const cleanOriginal = (originalText || '').trim();
+            if (!cleanOriginal || !translations) return;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            const entry = {
+                id: Date.now() + Math.random(),
+                time: timeStr,
+                original: cleanOriginal,
+                translations: translations
+            };
+
+            // Salva no histórico (usado na renderização e na exportação .TXT)
+            state.transcripts.push(entry);
+
+            // Renderiza nos painéis do Palco e da Plateia
+            renderTranscriptFeeds();
+
+            // Atualiza telemetria dinâmica de ouvintes conectados
+            fluctuateAudienceMetrics();
+
+            // Se a saída de áudio no fone estiver ativa ('both' ou 'audio'), narra no idioma escolhido
+            if (state.outputMode === 'both' || state.outputMode === 'audio') {
+                const translatedText = translations[state.targetLang] || cleanOriginal;
+                speakTranslatedText(translatedText, state.targetLang);
+            }
+        }
+
+        /**
+         * Renderiza o histórico de transcrições originais (Palco)
+         * e traduzidas (Plateia / Telão) respeitando o tamanho de fonte e modo de saída.
+         */
+        function renderTranscriptFeeds() {
+            const speakerList = document.getElementById('speaker-transcript-list');
+            const listenerList = document.getElementById('listener-transcript-list');
+
+            // 1. Atualiza o feed original do Palco
+            if (speakerList) {
+                if (state.transcripts.length === 0) {
+                    speakerList.innerHTML = `
+                        <div class="text-center py-8 text-xs text-slate-500" id="speaker-empty-state">
+                            Nenhuma frase captada ainda. Ative o microfone ou inicie a simulação.
+                        </div>`;
+                } else {
+                    speakerList.innerHTML = state.transcripts.map((item, idx) => {
+                        const isLatest = idx === state.transcripts.length - 1;
+                        return `
+                            <div class="p-3 rounded-xl border transition-all ${isLatest ? 'bg-indigo-500/15 border-indigo-500/40' : 'bg-studio-900/70 border-slate-800/80'}">
+                                <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                                    <span class="font-mono text-indigo-400">${item.time}</span>
+                                    ${isLatest ? '<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">AO VIVO</span>' : ''}
+                                </div>
+                                <p class="text-xs sm:text-sm text-slate-100 leading-relaxed">${escapeHtml(item.original)}</p>
+                            </div>
+                        `;
+                    }).join('');
+                    speakerList.scrollTop = speakerList.scrollHeight;
+                }
+            }
+
+            // 2. Atualiza o feed traduzido da Plateia / Telão
+            if (listenerList) {
+                if (state.transcripts.length === 0) {
+                    listenerList.innerHTML = `
+                        <div id="listener-empty-state" class="h-full flex flex-col items-center justify-center text-center py-12 text-slate-500">
+                            <i data-lucide="subtitles" class="w-10 h-10 mb-2 opacity-40"></i>
+                            <p class="text-sm font-medium text-slate-400">Aguardando transmissão do palco...</p>
+                            <p class="text-xs mt-1 max-w-sm">Assim que o palestrante falar, o texto traduzido aparecerá aqui e será narrado no seu idioma.</p>
+                        </div>`;
+                    lucide.createIcons();
+                } else {
+                    const fontSizeClasses = [
+                        'text-xs sm:text-sm',
+                        'text-sm sm:text-base',
+                        'text-base sm:text-xl font-medium',
+                        'text-xl sm:text-3xl font-bold tracking-tight leading-snug'
+                    ];
+                    const activeFontClass = fontSizeClasses[state.fontSizeLevel] || fontSizeClasses[1];
+
+                    listenerList.innerHTML = state.transcripts.map((item, idx) => {
+                        const isLatest = idx === state.transcripts.length - 1;
+                        const translated = item.translations[state.targetLang] || item.original;
+                        const showOriginalSub = state.targetLang !== 'pt' && item.original !== translated;
+
+                        return `
+                            <div class="p-3.5 rounded-xl border transition-all ${isLatest ? 'bg-emerald-500/15 border-emerald-500/40 shadow-lg shadow-emerald-950/30' : 'bg-studio-900/70 border-slate-800/80'}">
+                                <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1.5">
+                                    <span class="font-mono text-emerald-400">${item.time}</span>
+                                    <div class="flex items-center gap-2">
+                                        ${isLatest ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">ATUAL</span>' : ''}
+                                        <button type="button" onclick="replaySentenceAudio('${item.id}')" class="text-slate-400 hover:text-emerald-400 transition-colors" title="Ouvir esta frase novamente">
+                                            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="${activeFontClass} text-white leading-relaxed">${escapeHtml(translated)}</p>
+                                ${showOriginalSub ? `<p class="text-[11px] text-slate-400 mt-1.5 pt-1.5 border-t border-slate-800/60 italic">Original: ${escapeHtml(item.original)}</p>` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                    lucide.createIcons();
+                    listenerList.scrollTop = listenerList.scrollHeight;
+                }
+            }
+        }
+
+        /**
+         * Sintetiza e reproduz o texto traduzido nos fones de ouvido via Web SpeechSynthesis API.
+         */
+        function speakTranslatedText(text, langKey) {
+            const cleanText = (text || '').trim();
+            if (!cleanText || !('speechSynthesis' in window)) return;
+
+            try {
+                // Evita acúmulo infinito na fila de voz se o palestrante falar muito rápido
+                if (window.speechSynthesis.pending && window.speechSynthesis.speaking) {
+                    window.speechSynthesis.cancel();
+                }
+
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                const targetCode = ttsLangCodes[langKey] || 'en-US';
+                utterance.lang = targetCode;
+                utterance.rate = state.speechRate;
+
+                const voices = window.speechSynthesis.getVoices();
+                const matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(langKey.toLowerCase()));
+                if (matchingVoice) {
+                    utterance.voice = matchingVoice;
+                }
+
+                const indicator = document.getElementById('tts-speaking-indicator');
+                utterance.onstart = () => {
+                    if (indicator) indicator.classList.remove('hidden');
+                };
+                utterance.onend = () => {
+                    if (indicator) indicator.classList.add('hidden');
+                };
+                utterance.onerror = () => {
+                    if (indicator) indicator.classList.add('hidden');
+                };
+
+                window.speechSynthesis.speak(utterance);
+            } catch (err) {
+                console.warn('Falha na síntese de voz:', err);
+            }
+        }
+
+        function replaySentenceAudio(entryId) {
+            const entry = state.transcripts.find(t => String(t.id) === String(entryId));
+            if (!entry) return;
+            const textToSpeak = entry.translations[state.targetLang] || entry.original;
+            speakTranslatedText(textToSpeak, state.targetLang);
+        }
+
+        function onTargetLanguageChange() {
+            const select = document.getElementById('target-lang');
+            if (!select) return;
+            state.targetLang = select.value;
+
+            const titleEl = document.getElementById('listener-feed-title');
+            if (titleEl) {
+                titleEl.textContent = `Legendas & Dublagem ao Vivo (${languageNames[state.targetLang] || state.targetLang})`;
+            }
+
+            renderTranscriptFeeds();
+            showToast(`Canal de tradução alterado para ${languageNames[state.targetLang]}`, 'info');
+        }
+
+        function setOutputMode(mode) {
+            state.outputMode = mode;
+
+            document.querySelectorAll('.out-btn').forEach(btn => {
+                btn.classList.remove('bg-emerald-600', 'text-white');
+                btn.classList.add('text-slate-400');
+            });
+
+            const activeBtn = document.getElementById(`out-${mode}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-emerald-600', 'text-white');
+                activeBtn.classList.remove('text-slate-400');
+            }
+
+            const audioOnlyBanner = document.getElementById('audio-only-banner');
+            const listenerList = document.getElementById('listener-transcript-list');
+
+            if (mode === 'audio') {
+                if (audioOnlyBanner) audioOnlyBanner.classList.remove('hidden');
+                if (listenerList) listenerList.classList.add('hidden');
+                showToast('Modo Fone: apenas áudio ativo (legendas ocultas).', 'info');
+            } else {
+                if (audioOnlyBanner) audioOnlyBanner.classList.add('hidden');
+                if (listenerList) listenerList.classList.remove('hidden');
+                if (mode === 'text' && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    showToast('Modo Tela: áudio silenciado (apenas legendas visuais).', 'info');
+                } else if (mode === 'both') {
+                    showToast('Modo Ambos: legendas na tela + áudio no fone.', 'info');
+                }
+            }
+        }
+
+        function updateSpeechRate(val) {
+            state.speechRate = parseFloat(val) || 1.05;
+            const label = document.getElementById('speech-rate-val');
+            if (label) label.textContent = `${state.speechRate.toFixed(2)}x`;
+        }
+
+        function testHeadphoneAudio() {
+            const samplePhrases = {
+                en: 'Audio test successful. You are connected to the live translation channel.',
+                es: 'Prueba de audio exitosa. Está conectado al canal de traducción en vivo.',
+                fr: 'Test audio réussi. Vous êtes connecté au canal de traduction en direct.',
+                de: 'Audiotest erfolgreich. Sie sind mit dem Live-Übersetzungskanal verbunden.',
+                pt: 'Teste de áudio concluído. Você está conectado ao canal da palestra ao vivo.'
+            };
+            const text = samplePhrases[state.targetLang] || samplePhrases.en;
+            speakTranslatedText(text, state.targetLang);
+            showToast(`Reproduzindo teste de voz em ${languageNames[state.targetLang]}...`, 'success');
+        }
+
+        function setFontSizeLevel(val) {
+            state.fontSizeLevel = Math.max(0, Math.min(3, parseInt(val, 10) || 0));
+            const slider = document.getElementById('font-size-slider');
+            if (slider) slider.value = state.fontSizeLevel;
+            renderTranscriptFeeds();
+            const labels = ['Compacta', 'Padrão', 'Grande', 'Modo Telão'];
+            showToast(`Tamanho da legenda: ${labels[state.fontSizeLevel]}`, 'info');
+        }
+
+        function changeFontSize(delta) {
+            setFontSizeLevel(state.fontSizeLevel + delta);
+        }
+
+        function toggleFullscreenScreen() {
+            const listenerPanel = document.getElementById('panel-listener');
+            if (!document.fullscreenElement) {
+                listenerPanel.requestFullscreen().catch(() => {
+                    switchMode('listener');
+                    setFontSizeLevel(3);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // --- Utility & Export Functions ---
+        function clearTranscripts() {
+            state.transcripts = [];
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            renderTranscriptFeeds();
+            showToast('Histórico da palestra limpo.', 'info');
+        }
+
+        function exportTranscript() {
+            if (state.transcripts.length === 0) {
+                showToast('Não há transcrições para exportar ainda.', 'warning');
+                return;
+            }
+
+            const langLabel = languageNames[state.targetLang];
+            let content = `VOXFLOW LIVE - TRANSCRIÇÃO & TRADUÇÃO DA PALESTRA\n`;
+            content += `Sala: VX-8492 | Idioma de Destino: ${langLabel}\n`;
+            content += `Data: ${new Date().toLocaleDateString('pt-BR')}\n`;
+            content += `====================================================\n\n`;
+
+            state.transcripts.forEach(item => {
+                content += `[${item.time}] (${langLabel}): ${item.translations[state.targetLang]}\n`;
+                if (state.targetLang !== 'pt') {
+                    content += `           (Original): ${item.original}\n`;
+                }
+                content += `\n`;
+            });
+
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `VoxFlow_Palestra_${state.targetLang.toUpperCase()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Arquivo .TXT baixado com sucesso!', 'success');
+        }
+
+        function copyRoomLink() {
+            const shareText = `${window.location.href.split('#')[0]}#sala-VX-8492`;
+            const tempInput = document.createElement('input');
+            tempInput.value = shareText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast('Link de acesso da sala VX-8492 copiado!', 'success');
+        }
+
+        function fluctuateAudienceMetrics() {
+            const en = 60 + Math.floor(Math.random() * 12);
+            const es = 38 + Math.floor(Math.random() * 9);
+            const fr = 17 + Math.floor(Math.random() * 6);
+            const de = 10 + Math.floor(Math.random() * 5);
+            const pt = 10 + Math.floor(Math.random() * 5);
+            
+            document.getElementById('count-en').textContent = en;
+            document.getElementById('count-es').textContent = es;
+            document.getElementById('count-fr').textContent = fr;
+            document.getElementById('count-de').textContent = de;
+            document.getElementById('count-pt').textContent = pt;
+            document.getElementById('total-listeners-badge').textContent = en + es + fr + de + pt;
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[m];
+            });
+        }
+
+        // --- Initialize Canvas on Load ---
+        window.addEventListener('DOMContentLoaded', () => {
+            resizeCanvas();
+            drawVisualizer();
+        });
+    </script>
+</body>
+</html>
